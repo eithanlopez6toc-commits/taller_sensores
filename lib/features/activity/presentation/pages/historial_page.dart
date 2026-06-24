@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/datasources/activity_repository.dart';
 import '../../../../core/database/database.dart';
 import '../../../../../injection_container.dart';
+import 'package:fitness_tracker/features/auth/tracking/presentation/widgets/route_map_widget.dart';
+import 'package:fitness_tracker/features/auth/tracking/domain/entities/location_point.dart';
 
 class HistorialPage extends StatefulWidget {
   final void Function(VoidCallback reload)? onRegisterReload;
@@ -230,7 +230,7 @@ class _HistorialPageState extends State<HistorialPage> {
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               _badge('${record.stepCount} pasos', _purple),
               const SizedBox(height: 4),
-              Text(record.formattedDuration, style: const TextStyle(fontSize: 12, color: _textGrey)),
+              Text(_formatStepCounterTime(record.durationSeconds), style: const TextStyle(fontSize: 12, color: _textGrey)),
             ]),
             const SizedBox(width: 4),
             IconButton(
@@ -247,7 +247,7 @@ class _HistorialPageState extends State<HistorialPage> {
             _quickStat(Icons.speed, '${record.averageSpeed.toStringAsFixed(1)} km/h'),
             if (hasRoute) ...[
               const SizedBox(width: 12),
-              _quickStat(Icons.gps_fixed, '${points.length} pts', color: _purple),
+              _quickStat(Icons.gps_fixed, '${points.length} puntos', color: _purple),
             ],
           ])),
         ]),
@@ -274,49 +274,28 @@ class _HistorialPageState extends State<HistorialPage> {
   String _fmt(int n) => n >= 1000 ? '${(n / 1000).toStringAsFixed(1)}k' : n.toString();
 }
 
+String _formatStepCounterTime(int seconds) {
+  final duration = Duration(seconds: seconds);
+  final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+  final sec = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return '$minutes:$sec';
+}
+
 // ─── MINI MAPA ───────────────────────────────────────────────────────────────
 
 class _MiniRouteMap extends StatelessWidget {
-  final List<dynamic> points;
+  final List<LocationPoint> points;
   const _MiniRouteMap({required this.points});
 
   @override
   Widget build(BuildContext context) {
-    final latlngs = points
-        .where((p) => p.latitude != null && p.longitude != null)
-        .map((p) => LatLng(p.latitude as double, p.longitude as double))
-        .toList();
-
-    if (latlngs.length < 2) return const SizedBox.shrink();
-
-    final avgLat = latlngs.fold(0.0, (s, p) => s + p.latitude) / latlngs.length;
-    final avgLng = latlngs.fold(0.0, (s, p) => s + p.longitude) / latlngs.length;
-
-    return FlutterMap(
-      options: MapOptions(
-        initialCenter: LatLng(avgLat, avgLng),
-        initialZoom: 15,
-        interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
+    if (points.length < 2) return const SizedBox.shrink();
+    return Container(
+      color: Colors.grey.shade100,
+      child: CustomPaint(
+        painter: RoutePainter(points: points),
+        child: const SizedBox.expand(),
       ),
-      children: [
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.tuinstituto.fitness_tracker',
-          maxZoom: 19,
-        ),
-        PolylineLayer(polylines: [
-          Polyline(points: latlngs, color: const Color(0xFF6C47FF), strokeWidth: 3.5)]),
-        MarkerLayer(markers: [
-          Marker(point: latlngs.first, width: 14, height: 14,
-            child: Container(decoration: const BoxDecoration(color: Colors.green,
-              shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)]))),
-          Marker(point: latlngs.last, width: 14, height: 14,
-            child: Container(decoration: const BoxDecoration(color: Colors.red,
-              shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)]))),
-        ]),
-      ],
     );
   }
 }
@@ -499,7 +478,7 @@ class _ActivityDetailPageState extends State<_ActivityDetailPage> {
       _detailCard('Pasos',      '${_record.stepCount}',                              Icons.directions_walk,      Colors.blue),
       _detailCard('Distancia',  '${_record.distanceKm.toStringAsFixed(2)} km',       Icons.straighten,           Colors.green),
       _detailCard('Calorías',   '${_record.caloriesBurned.toStringAsFixed(0)} kcal', Icons.local_fire_department, Colors.orange),
-      _detailCard('Duración',   _record.formattedDuration,                           Icons.timer,                _purple),
+      _detailCard('Duración',   _formatStepCounterTime(_record.durationSeconds),      Icons.timer,                _purple),
       _detailCard('Vel. media', '${_record.averageSpeed.toStringAsFixed(1)} km/h',   Icons.speed,                Colors.teal),
       _detailCard('Tipo',       _record.label,                                       Icons.category,             Colors.indigo),
     ],
