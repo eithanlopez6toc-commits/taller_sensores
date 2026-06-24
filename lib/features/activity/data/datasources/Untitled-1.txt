@@ -1,0 +1,138 @@
+import 'dart:async';
+import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
+import 'package:sensors_plus/sensors_plus.dart';
+import 'package:flutter_activity_recognition/flutter_activity_recognition.dart';
+
+import 'activity_datasource.dart';
+import '../../domain/entities/activity_state.dart';
+import '../../domain/entities/fall_event.dart';
+
+class ActivityDataSourceImpl implements ActivityDataSource {
+  final StreamController<ActivityState> _activityController = StreamController<ActivityState>.broadcast();
+  final StreamController<FallEvent> _fallController = StreamController<FallEvent>.broadcast();
+
+  @override
+  Stream<ActivityState> get activityStream => _activityController.stream;
+
+  @override
+  Stream<FallEvent> get fallStream => _fallController.stream;
+
+  StreamSubscription<AccelerometerEvent>? _accelerometerSub; 
+  StreamSubscription<Activity>? _recognitionSub; 
+
+  final _activityRecognition = FlutterActivityRecognition.instance;
+
+  int _stepCount = 0;
+  UserActivityType _currentActivity = UserActivityType.stationary;
+  DateTime _lastStepTime = DateTime.now();
+  bool _isFallDetected = false;
+
+  // ⚙️ CALIBRACIÓN BLINDADA (EVITA FALSOS POSITIVOS EN LA MANO)
+  static const Duration _stepCooldown = Duration(milliseconds: 550); 
+  static const double _stepThreshold = 10.6; 
+  static const double _runThreshold = 13.8;  
+  static const double _fallThreshold = 18.5; // Umbral de agitación fuerte
+
+  @override
+  Future<bool> requestPermissions() async {
+    try {
+      final dynamic permission = await _activityRecognition.checkPermission();
+      return permission.toString().toLowerCase().contains('permit') || 
+             permission.toString().toLowerCase().contains('grant');
+    } catch (e) {
+      return true; 
+    }
+  }
+
+  @override
+  Future<void> startTracking() async {
+    _stepCount = 0;
+    _currentActivity = UserActivityType.stationary;
+    _lastStepTime = DateTime.now();
+    _isFallDetected = false;
+
+    _notifyState();
+
+    _accelerometerSub = accelerometerEventStream().listen((event) {
+      final double magnitude = math.sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
+      final DateTime now = DateTime.now();
+
+      // 1. FILTRO ULTRA CRÍTICO: Si la fuerza va directo a ser una agitación/caída, 
+      // bloqueamos inmediatamente que se marque como "Caminar" o "Correr".
+      if (magnitude >= _fallThreshold) {
+        if (!_isFallDetected) {
+          _isFallDetected = true;
+          _currentActivity = UserActivityType.stationary; // Forzamos quietud en la UI
+          _notifyState();
+          _fallController.add(FallEvent(magnitude: magnitude, occurredAt: now));
+        }
+        return; // Rompemos el flujo para que no evalúe los ifs de abajo
+      }
+
+      // 2. DETECCIÓN DE PASOS REGULARES (Ignora si hay picos locos)
+      if (magnitude > _stepThreshold && magnitude < _runThreshold && !_isFallDetected) {
+        if (now.difference(_lastStepTime) > _stepCooldown) {
+          _stepCount++;
+          _lastStepTime = now;
+          _currentActivity = UserActivityType.walking;
+          _notifyState();
+        }
+      }
+
+      // 3. DETECCIÓN DE CORRER (Solo en el rango medio de agitación rítmica)
+      if (magnitude >= _runThreshold && magnitude < _fallThreshold && !_isFallDetected) {
+        if (_currentActivity != UserActivityType.running) {
+          _currentActivity = UserActivityType.running;
+          _notifyState();
+        }
+      }
+    }, onError: (Object error) => debugPrint('Error en acelerómetro: $error'));
+
+    // Escucha nativa aislada
+    scheduleMicrotask(() async {
+      try {
+        _recognitionSub = _activityRecognition.activityStream.listen(
+          (Activity nativeEvent) { 
+            if (nativeEvent.type == ActivityType.STILL && !_isFallDetected) {
+              _currentActivity = UserActivityType.stationary;
+              _notifyState();
+            }
+          }, 
+          onError: (Object error) => debugPrint('Error en ActivityRecognition: $error')
+        );
+      } catch (e) {
+        debugPrint('Plugin aislado: $e');
+      }
+    });
+  }
+
+  void _notifyState() {
+    _activityController.add(ActivityState(
+      type: _currentActivity,
+      detectedAt: DateTime.now(),
+      stepCount: _stepCount,
+    ));
+  }
+
+  @override
+  Future<void> stopTracking() async {
+    await _accelerometerSub?.cancel();
+    await _recognitionSub?.cancel();
+    _accelerometerSub = null;
+    _recognitionSub = null;
+    
+    _stepCount = 0;
+    _isFallDetected = false;
+    _currentActivity = UserActivityType.stationary;
+
+    // Estado de apagado absoluto
+    _activityController.add(ActivityState(
+      type: UserActivityType.stationary,
+      detectedAt: DateTime.now(),
+      stepCount: 0,
+    ));
+    
+    debugPrint('🛑 TRACKING DETENIDO EXITOSAMENTE EN FUENTE DE DATOS');
+  }
+}

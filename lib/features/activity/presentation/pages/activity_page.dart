@@ -1,10 +1,8 @@
-import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/activity_bloc.dart';
 import '../../domain/entities/activity_state.dart';
-import '../../data/datasources/activity_datasource_impl.dart';
-import '../../../../../injection_container.dart';
 
 class ActivityPage extends StatefulWidget {
   const ActivityPage({super.key});
@@ -14,172 +12,81 @@ class ActivityPage extends StatefulWidget {
 }
 
 class _ActivityPageState extends State<ActivityPage> {
+  bool _isMonitoring = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _requestPermissionsAndStart();
-  }
+  // ✅ Eliminado FlutterTts y _lastSpokenActivity — el Bloc ya maneja el audio
 
-  Future<void> _requestPermissionsAndStart() async {
-    final datasource = sl<ActivityDataSourceImpl>();
-    final granted = await datasource.requestPermissions();
-
-    if (!mounted) return;
-
-    if (granted) {
-      context.read<ActivityBloc>().add(ActivityStarted());
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Permisos denegados. Ve a Ajustes > Permisos de la app y activa "Actividad física" y "Sensores corporales".',
-          ),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 6),
-        ),
-      );
-    }
-  }
-
-  void _showFallDialog(BuildContext context, FallAlert state) {
-    bool showSecondary = false;
-    Timer? secondaryTimer;
-
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-
-            secondaryTimer ??= Timer(
-              const Duration(seconds: 15),
-              () {
-                setDialogState(() {
-                  showSecondary = true;
-                });
-              },
-            );
-
-            return AlertDialog(
-              title: const Row(
-                children: [
-                  Icon(Icons.warning_amber_rounded,
-                      color: Colors.orange, size: 28),
-                  SizedBox(width: 8),
-                  Text('¿Estás bien?'),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Se detectó una posible caída.'),
-                  const SizedBox(height: 8),
-                  if (showSecondary)
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red),
-                      ),
-                      child: const Text(
-                        '¡Por favor responde! ¿Necesitas ayuda?',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    secondaryTimer?.cancel();
-                    context.read<ActivityBloc>().add(FallConfirmed());
-                    Navigator.pop(dialogContext);
-                  },
-                  child: const Text('Estoy bien'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () {
-                    secondaryTimer?.cancel();
-                    context.read<ActivityBloc>().add(FallDismissed());
-                    Navigator.pop(dialogContext);
-                  },
-                  child: const Text('Necesito ayuda'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
+  void _toggleMonitoring(bool start) {
+    setState(() => _isMonitoring = start);
+    context.read<ActivityBloc>().add(start ? ActivityStarted() : ActivityStopped());
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Detector de Actividad'),
-        backgroundColor: const Color(0xFF6366F1),
-        foregroundColor: Colors.white,
+        title: const Text('Detector de Actividad', style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color.fromARGB(255, 93, 0, 255),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: BlocListener<ActivityBloc, ActivityBlocState>(
         listener: (context, state) {
+          // ✅ Solo reacciona a caídas, sin tocar TTS
           if (state is FallAlert) {
-            _showFallDialog(context, state);
+            _showFallDialog();
           }
         },
         child: BlocBuilder<ActivityBloc, ActivityBlocState>(
           builder: (context, state) {
-            return Center(
+            final data = state is ActivityTracking ? state.current : null;
+            final km = data?.distanceKm ?? 0.0;
+            final cal = data?.calories ?? 0.0;
+            final time = data?.duration ?? Duration.zero;
+            final config = _getActivityConfig(state);
+
+            return Padding(
+              padding: const EdgeInsets.all(16.0),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    _getIcon(state),
-                    size: 100,
-                    color: const Color(0xFF6366F1),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    _getLabel(state),
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
+                  Card(
+                    elevation: 6,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildStatItem("KM", km.toStringAsFixed(2)),
+                          _buildStatItem("KCAL", cal.toStringAsFixed(0)),
+                          _buildStatItem("TIEMPO", _formatDuration(time)),
+                        ],
+                      ),
                     ),
+                  ),
+                  const Spacer(),
+                  Icon(config.icon, size: 120, color: config.color),
+                  const SizedBox(height: 10),
+                  Text(
+                    config.label.toUpperCase(),
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: config.color),
                   ),
                   const SizedBox(height: 40),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      if (state is ActivityTracking) {
-                        context.read<ActivityBloc>().add(ActivityStopped());
-                      } else {
-                        _requestPermissionsAndStart();
-                      }
-                    },
-                    icon: Icon(
-                      state is ActivityTracking ? Icons.stop : Icons.play_arrow,
-                    ),
-                    label: Text(
-                      state is ActivityTracking ? 'Detener' : 'Iniciar',
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: state is ActivityTracking
-                          ? Colors.red
-                          : Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 32, vertical: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 55,
+                    child: ElevatedButton(
+                      onPressed: () => _toggleMonitoring(!_isMonitoring),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _isMonitoring ? Colors.redAccent : Colors.green,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      ),
+                      child: Text(
+                        _isMonitoring ? "DETENER MONITOREO" : "INICIAR MONITOREO",
+                        style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
+                  const Spacer(),
                 ],
               ),
             );
@@ -189,26 +96,59 @@ class _ActivityPageState extends State<ActivityPage> {
     );
   }
 
-  IconData _getIcon(ActivityBlocState state) {
-    if (state is ActivityTracking) {
-      switch (state.current.type) {
-        case UserActivityType.walking:
-          return Icons.directions_walk;
-        case UserActivityType.running:
-          return Icons.directions_run;
-        case UserActivityType.stationary:
-          return Icons.accessibility_new;
-        case UserActivityType.unknown:
-          return Icons.help_outline;
-      }
-    }
-    return Icons.fitness_center;
+  // ✅ Formato mm:ss en lugar de solo minutos
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
   }
 
-  String _getLabel(ActivityBlocState state) {
-    if (state is ActivityTracking) {
-      return state.current.label;
+  Widget _buildStatItem(String title, String value) => Column(
+        children: [
+          Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(title, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ],
+      );
+
+  ({IconData icon, Color color, String label}) _getActivityConfig(ActivityBlocState state) {
+    if (!_isMonitoring) {
+      return (icon: Icons.play_circle_fill, color: Colors.grey, label: "Detenido");
     }
-    return 'Presiona Iniciar';
+    if (state is FallAlert) {
+      return (icon: Icons.warning_amber_rounded, color: Colors.red, label: "¡CAÍDA!");
+    }
+    if (state is ActivityTracking) {
+      return switch (state.current.type) {
+        UserActivityType.running    => (icon: Icons.directions_run,     color: Colors.redAccent, label: "Corriendo"),
+        UserActivityType.walking    => (icon: Icons.directions_walk,    color: Colors.blue,      label: "Caminando"),
+        UserActivityType.stationary => (icon: Icons.accessibility_new,  color: Colors.green,     label: "En reposo"),
+        UserActivityType.unknown    => (icon: Icons.help_outline,       color: Colors.amber,     label: "Analizando"),
+      };
+    }
+    return (icon: Icons.circle_outlined, color: Colors.grey, label: "...");
+  }
+
+  void _showFallDialog() {
+    // Evitar mostrar el diálogo si ya está visible
+    if (!mounted) return;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('⚠️ ¡Alerta de Impacto!'),
+        content: const Text('Se ha detectado una caída. ¿Te encuentras bien?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<ActivityBloc>().add(FallConfirmed());
+              // ✅ El TtsService del Bloc habla, no la página
+            },
+            child: const Text('ESTOY BIEN', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 }

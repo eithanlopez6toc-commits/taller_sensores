@@ -1,52 +1,47 @@
 import 'package:equatable/equatable.dart';
 
-/// Enum propio de la app (renombrado a UserActivityType
-/// para evitar colisión con el enum ActivityType del plugin
-/// activity_recognition_flutter)
-enum UserActivityType {
-  walking,
-  running,
-  stationary,
-  unknown,
-}
+enum UserActivityType { running, walking, stationary, unknown }
 
 class ActivityState extends Equatable {
   final UserActivityType type;
-  final DateTime detectedAt;
+  final int stepCount;
+  final double distanceKm;
+  final double calories;
+  final Duration duration;
 
   const ActivityState({
     required this.type,
-    required this.detectedAt,
+    required this.stepCount,
+    this.distanceKm = 0.0,
+    this.calories = 0.0,
+    this.duration = Duration.zero,
   });
 
-  /// Texto que se muestra en la UI
-  String get label {
-    switch (type) {
-      case UserActivityType.walking:
-        return 'Caminando';
-      case UserActivityType.running:
-        return 'Corriendo';
-      case UserActivityType.stationary:
-        return 'Detenido';
-      case UserActivityType.unknown:
-        return 'Detectando...';
-    }
+  ActivityState copyWith({
+    UserActivityType? type,
+    int? stepCount,
+    double? distanceKm,
+    double? calories,
+    Duration? duration,
+  }) {
+    return ActivityState(
+      type: type ?? this.type,
+      stepCount: stepCount ?? this.stepCount,
+      distanceKm: distanceKm ?? this.distanceKm,
+      calories: calories ?? this.calories,
+      duration: duration ?? this.duration,
+    );
   }
 
-  /// Texto que lee flutter_tts en voz alta
   String get voiceMessage {
-    switch (type) {
-      case UserActivityType.walking:
-        return 'Estás caminando';
-      case UserActivityType.running:
-        return 'Estás corriendo';
-      case UserActivityType.stationary:
-        return 'Te has detenido';
-      case UserActivityType.unknown:
-        return '';
-    }
+    return switch (type) {
+      UserActivityType.running => "Estás corriendo.",
+      UserActivityType.walking => "Estás caminando.",
+      UserActivityType.stationary => "Estás en reposo.",
+      _ => "",
+    };
   }
 
   @override
-  List<Object?> get props => [type, detectedAt];
+  List<Object?> get props => [type, stepCount, distanceKm, calories, duration];
 }

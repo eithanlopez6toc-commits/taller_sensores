@@ -11,17 +11,17 @@ dependencies:
     sdk: flutter
 
   # Gestión de estado
-  flutter_bloc: ^8.1.3
+  flutter_bloc: ^9.1.1
   equatable: ^2.0.5
 
   # Inyección de dependencias
-  get_it: ^7.6.4
+  get_it: ^9.2.1
 
   # Manejo de permisos
-  permission_handler: ^11.0.1
+  permission_handler: ^12.0.3
 
-  # Acelerómetro crudo - para detección de caídas
-  sensors_plus: ^5.0.1
+  # Sensores - acelerómetro crudo para detección de caídas
+  sensors_plus: ^7.0.0
 
   # Clasificación de actividad (caminar / correr / quieto)
   activity_recognition_flutter: ^6.0.0
@@ -29,12 +29,33 @@ dependencies:
   # Síntesis de voz
   flutter_tts: ^4.0.2
 
+  # Autenticación biométrica
+  local_auth: ^3.0.1
+
+  # GPS y ubicación
+  geolocator: ^14.0.3
+
+  # Base de datos local (Drift - Compatible con AGP 8.x)
+  drift: ^2.14.1
+  sqlite3_flutter_libs: ^0.6.0+eol
+
   cupertino_icons: ^1.0.8
+  path_provider: ^2.1.6
+  flutter_activity_recognition: ^4.0.0
+  intl: ^0.20.2
+  flutter_map: ^8.3.0
+  latlong2: ^0.9.1
+  bloc_concurrency: ^0.3.0
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
+  flutter_lints: ^6.0.0
+  
+  # Generador de código Drift
+  drift_dev: ^2.14.1
+  build_runner: ^2.4.6
 
 flutter:
   uses-material-design: true

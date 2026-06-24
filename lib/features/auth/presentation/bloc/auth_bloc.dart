@@ -19,17 +19,17 @@ abstract class AuthState extends Equatable {
 
 class AuthInitial extends AuthState {}
 class AuthLoading extends AuthState {}
+
 class AuthSuccess extends AuthState {
   final AuthResult result;
   AuthSuccess(this.result);
-
   @override
   List<Object> get props => [result];
 }
+
 class AuthFailure extends AuthState {
   final String message;
   AuthFailure(this.message);
-
   @override
   List<Object> get props => [message];
 }
@@ -47,14 +47,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     emit(AuthLoading());
-
     try {
       final result = await authenticateUser();
-
       if (result.success) {
         emit(AuthSuccess(result));
       } else {
-        emit(AuthFailure(result.message ?? 'Error desconocido'));
+        // ✅ message nunca es null en tu implementación, pero por seguridad
+        emit(AuthFailure(result.message ?? 'Autenticación fallida'));
       }
     } catch (e) {
       emit(AuthFailure(e.toString()));

@@ -1,78 +1,86 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.tuinstituto.fitness_tracker">
 
-    <!-- Permisos existentes -->
-    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- PERMISOS PARA SENSORES Y HARDWARE                              -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
 
-    <!-- Permisos nuevos -->
-    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
-    <uses-permission android:name="android.permission.BODY_SENSORS"/>
-    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <!-- Acceso a acelerómetro y sensores (para detección de actividad) -->
     <uses-permission android:name="android.permission.BODY_SENSORS" />
-<uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
-<uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Acceso a reconocimiento de actividad -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
 
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- PERMISOS PARA UBICACIÓN (geolocator plugin)                    -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
 
+    <!-- Ubicación aproximada (redes) -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <!-- Ubicación precisa (GPS) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
+    <!-- Ubicación en background (opcional, para tracking continuo) -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- PERMISOS PARA BIOMETRÍA (local_auth plugin)                    -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+
+    <!-- Biometric (huella, facial) -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
+    <!-- Fingerprint (legacy) -->
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
 
     <application
-        android:label="login_pro"
+        android:label="Fitness Tracker"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
-
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
 
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is overridden by the
+                 Flutter theme in the file called styles.xml in the res/values-v21
+                 folder. -->
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
-                android:resource="@style/NormalTheme" />
+                android:resource="@style/NormalTheme"
+                />
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-
-            <!-- Deep linking configuration -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="loginpro" />
-            </intent-filter>
-
-            <!-- Supabase callback -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW"/>
-                <category android:name="android.intent.category.DEFAULT"/>
-                <category android:name="android.intent.category.BROWSABLE"/>
-                <data
-                    android:scheme="https"
-                    android:host="loginvercelflutter.vercel.app"/>
-            </intent-filter>
         </activity>
 
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-
     </application>
 
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
-        </intent>
-    </queries>
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- FEATURES REQUERIDAS (opcional, para app stores)                -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+
+    <!-- GPS es recomendado pero no requerido -->
+    <uses-feature
+        android:name="android.hardware.location.gps"
+        android:required="false" />
+
+    <!-- Biometría es recomendado pero no requerido -->
+    <uses-feature
+        android:name="android.hardware.biometrics"
+        android:required="false" />
+
 </manifest>

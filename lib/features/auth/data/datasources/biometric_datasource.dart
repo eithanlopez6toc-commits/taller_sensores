@@ -1,54 +1,60 @@
-import 'package:flutter/services.dart';
-import '../../../../core/platform/platform_channels.dart';
+import 'package:flutter/foundation.dart';
+import 'package:local_auth/local_auth.dart';
 import '../../domain/entities/auth_result.dart';
 
-/// DataSource para autenticación biométrica usando Platform Channels
-/// - Este es el LADO FLUTTER del Platform Channel
-/// - Usamos MethodChannel porque es petición/respuesta
-/// - El nombre del canal DEBE coincidir con el lado Android
 abstract class BiometricDataSource {
   Future<bool> canAuthenticate();
+  Future<List<BiometricType>> getAvailableBiometrics();
   Future<AuthResult> authenticate();
 }
 
 class BiometricDataSourceImpl implements BiometricDataSource {
-  /// MethodChannel: canal de comunicación Flutter ↔ Android
-  /// El nombre debe ser exactamente igual en ambos lados
-  final MethodChannel _channel = const MethodChannel(
-    PlatformChannels.biometric
-  );
+  final LocalAuthentication _localAuth = LocalAuthentication();
+
+  static const String _reason =
+      'Autentica con huella dactilar para acceder a Fitness Tracker';
 
   @override
   Future<bool> canAuthenticate() async {
     try {
-      /// invokeMethod: envía un mensaje a Android y espera respuesta
-      /// - Parámetro 1: nombre del método (debe coincidir en Android)
-      /// - Retorna: un Future con la respuesta
-      final result = await _channel.invokeMethod<bool>(
-        'checkBiometricSupport'
-      );
-
-      return result ?? false;
-    } on PlatformException catch (e) {
-      print('Error verificando biometría: ${e.message}');
+      return await _localAuth.canCheckBiometrics;
+    } catch (e) {
+      debugPrint('❌ Error verificando soporte biométrico: $e');
       return false;
+    }
+  }
+
+  @override
+  Future<List<BiometricType>> getAvailableBiometrics() async {
+    try {
+      return await _localAuth.getAvailableBiometrics();
+    } catch (e) {
+      debugPrint('❌ Error obteniendo biométricos disponibles: $e');
+      return [];
     }
   }
 
   @override
   Future<AuthResult> authenticate() async {
     try {
-      /// Llamamos al método 'authenticate' del lado Android
-      final result = await _channel.invokeMethod<bool>('authenticate');
+      final isAuthenticated = await _localAuth.authenticate(
+        localizedReason: _reason,
+        // ✅ local_auth 3.x: parámetros directos, sin options
+        biometricOnly: false,
+        sensitiveTransaction: true,
+        persistAcrossBackgrounding: true, // equivale a stickyAuth
+      );
 
       return AuthResult(
-        success: result ?? false,
-        message: result == true ? 'Autenticación exitosa' : 'Autenticación fallida',
+        success: isAuthenticated,
+        message: isAuthenticated
+            ? 'Autenticación exitosa ✓'
+            : 'Autenticación cancelada',
       );
-    } on PlatformException catch (e) {
+    } on Exception catch (e) {
       return AuthResult(
         success: false,
-        message: 'Error: ${e.message}',
+        message: 'Error de autenticación: ${e.toString()}',
       );
     }
   }

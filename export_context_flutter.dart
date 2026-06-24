@@ -1,12 +1,12 @@
 import 'dart:io';
 
 // Nombre del archivo de salida
-const OUTPUT_FILE = 'contexto_proyecto.md';
+const outputFileName = 'contexto_proyecto.md';
 
-final ROOT_DIR = Directory.current.path;
+final rootDir = Directory.current.path;
 
 // Carpetas a ignorar
-const IGNORE_DIRS = [
+const ignoreDirs = [
   '.dart_tool',
   '.idea',
   '.vscode',
@@ -24,14 +24,14 @@ const IGNORE_DIRS = [
 ];
 
 // Archivos a ignorar
-const IGNORE_FILES = [
+const ignoreFiles = [
   'pubspec.lock',
-  OUTPUT_FILE,
+  outputFileName,
   'export_context_flutter.dart',
 ];
 
 // Extensiones permitidas
-const ALLOWED_EXTENSIONS = [
+const allowedExtensions = [
   '.dart',
   '.yaml',
   '.yml',
@@ -47,12 +47,12 @@ bool shouldIgnoreDirectory(Directory dir) {
   final path = dir.path.replaceAll('\\', '/');
   final name = path.split('/').last;
 
-  return IGNORE_DIRS.any((ignored) => path.endsWith(ignored)) ||
-      (name.startsWith('.') && !IGNORE_DIRS.contains(name));
+  return ignoreDirs.any((String ignored) => path.endsWith(ignored)) ||
+      (name.startsWith('.') && !ignoreDirs.contains(name));
 }
 
 bool shouldIgnoreFile(String fileName) {
-  return IGNORE_FILES.contains(fileName);
+  return ignoreFiles.contains(fileName);
 }
 
 /// ===========================================
@@ -90,7 +90,7 @@ void generateTree(
 /// ANALIZAR CLEAN ARCHITECTURE
 /// ===========================================
 void analyzeArchitecture() {
-  final libDir = Directory('$ROOT_DIR/lib');
+  final libDir = Directory('$rootDir/lib');
 
   if (!libDir.existsSync()) {
     architectureWarnings.add(
@@ -190,7 +190,7 @@ void buildContext(
           : '';
 
       final isAllowedExtension =
-          ALLOWED_EXTENSIONS.contains(ext);
+          allowedExtensions.contains(ext);
 
       final isConfigFile =
           name.startsWith('.') ||
@@ -205,7 +205,7 @@ void buildContext(
               item.readAsStringSync();
 
           final relativePath = item.path.replaceFirst(
-            '$ROOT_DIR${Platform.pathSeparator}',
+            '$rootDir${Platform.pathSeparator}',
             '',
           );
 
@@ -233,12 +233,12 @@ $content
 /// ===========================================
 void main() async {
   final outputFile = File(
-    '$ROOT_DIR${Platform.pathSeparator}$OUTPUT_FILE',
+    '$rootDir${Platform.pathSeparator}$outputFileName',
   );
 
   final sink = outputFile.openWrite();
 
-  print('⏳ Analizando proyecto Flutter...');
+  stdout.writeln('⏳ Analizando proyecto Flutter...');
 
   analyzeArchitecture();
 
@@ -267,21 +267,21 @@ void main() async {
   sink.writeln('\n\n# ESTRUCTURA DEL PROYECTO\n');
 
   generateTree(
-    Directory(ROOT_DIR),
+    Directory(rootDir),
     sink,
   );
 
   sink.writeln('\n\n# CONTENIDO DE LOS ARCHIVOS\n');
 
   buildContext(
-    Directory(ROOT_DIR),
+    Directory(rootDir),
     sink,
   );
 
   await sink.close();
 
-  print('');
-  print('✅ Contexto generado correctamente');
-  print('📄 Archivo creado: $OUTPUT_FILE');
-  print('📂 Ubicación: $ROOT_DIR');
+  stdout.writeln('');
+  stdout.writeln('✅ Contexto generado correctamente');
+  stdout.writeln('📄 Archivo creado: $outputFile');
+  stdout.writeln('📂 Ubicación: $rootDir');
 }
